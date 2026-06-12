@@ -63,12 +63,12 @@ export default class Cl_cLaboratorioBio {
         let examen = this.laboratorio.buscarPorId(idExamen);
         if (examen && examen.id) {
             examen.resultadoExamen = resultados.join(", ");
-            if (examen.estado === "preparacion" && resultados.some(r => r.trim() !== "" && r !== "No realizado")) {
-                examen.cambiarEstado("pendiente");
-            }
+            // CORRECCIÓN: Al guardar resultados, cambiar a estado "pendiente", NO a "listo"
+            // Solo debe pasar a "listo" cuando el bioanalista haga clic en "Finalizar"
+            examen.cambiarEstado("pendiente");
             let exito = await Cl_sLaboratorio.actualizarEnNube(examen.id, examen);
             if (exito.ok) {
-                alert("✅ Resultados guardados correctamente.");
+                alert("✅ Resultados guardados correctamente. El examen ahora está en estado PENDIENTE.");
                 await this.cargarExamenes();
             }
             else {
@@ -83,6 +83,7 @@ export default class Cl_cLaboratorioBio {
                 alert("⚠️ Debe cargar todos los resultados antes de finalizar.");
                 return;
             }
+            // CORRECCIÓN: Solo aquí se cambia a "listo"
             examen.cambiarEstado("listo");
             let exito = await Cl_sLaboratorio.actualizarEnNube(examen.id, examen);
             if (exito.ok) {

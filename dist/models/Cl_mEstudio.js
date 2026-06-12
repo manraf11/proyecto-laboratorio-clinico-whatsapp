@@ -7,7 +7,7 @@ export default class Cl_mEstudio {
     _unidad;
     _valoresReferencia;
     constructor(datos) {
-        this.id = datos.id || ""; // CORREGIDO: MockAPI da el ID, no generamos local
+        this.id = datos.id || "";
         this._nombre = datos.nombre;
         this._precio = datos.precio;
         this._unidad = datos.unidad;
@@ -69,6 +69,89 @@ export default class Cl_mEstudio {
     static obtenerUnidad(nombreEstudio) {
         const estudio = this.buscarPorNombre(nombreEstudio);
         return estudio ? estudio.unidad : "";
+    }
+    static parseValoresReferencia(nombreEstudio) {
+        const valorRef = this.obtenerValoresReferencia(nombreEstudio);
+        if (!valorRef || typeof valorRef !== 'string')
+            return null;
+        const texto = valorRef.trim().toLowerCase();
+        if (texto.startsWith("<")) {
+            const num = parseFloat(texto.substring(1));
+            if (!isNaN(num)) {
+                return { max: num, operador: "<", valor: num };
+            }
+        }
+        if (texto.startsWith(">")) {
+            const num = parseFloat(texto.substring(1));
+            if (!isNaN(num)) {
+                return { min: num, operador: ">", valor: num };
+            }
+        }
+        if (texto.startsWith("<=")) {
+            const num = parseFloat(texto.substring(2));
+            if (!isNaN(num)) {
+                return { max: num, operador: "<=", valor: num };
+            }
+        }
+        if (texto.startsWith(">=")) {
+            const num = parseFloat(texto.substring(2));
+            if (!isNaN(num)) {
+                return { min: num, operador: ">=", valor: num };
+            }
+        }
+        if (texto.includes("-")) {
+            const partes = texto.split('-').map(p => p.trim());
+            const min = parseFloat(partes[0]);
+            const max = parseFloat(partes[1]);
+            if (!isNaN(min) && !isNaN(max)) {
+                return { min, max, operador: "rango" };
+            }
+        }
+        const numExacto = parseFloat(texto);
+        if (!isNaN(numExacto)) {
+            return { min: numExacto, max: numExacto, operador: "exacto", valor: numExacto };
+        }
+        return null;
+    }
+    static evaluarResultado(nombreEstudio, valorResultado) {
+        const referencia = this.parseValoresReferencia(nombreEstudio);
+        if (!referencia) {
+            return { esAlto: false, esBajo: false, mensaje: "" };
+        }
+        if (referencia.operador === "<") {
+            if (valorResultado >= referencia.valor) {
+                return { esAlto: true, esBajo: false, mensaje: `ALTO (debe ser < ${referencia.valor})` };
+            }
+            return { esAlto: false, esBajo: false, mensaje: "" };
+        }
+        if (referencia.operador === "<=") {
+            if (valorResultado > referencia.valor) {
+                return { esAlto: true, esBajo: false, mensaje: `ALTO (debe ser ≤ ${referencia.valor})` };
+            }
+            return { esAlto: false, esBajo: false, mensaje: "" };
+        }
+        if (referencia.operador === ">") {
+            if (valorResultado <= referencia.valor) {
+                return { esBajo: true, esAlto: false, mensaje: `BAJO (debe ser > ${referencia.valor})` };
+            }
+            return { esAlto: false, esBajo: false, mensaje: "" };
+        }
+        if (referencia.operador === ">=") {
+            if (valorResultado < referencia.valor) {
+                return { esBajo: true, esAlto: false, mensaje: `BAJO (debe ser ≥ ${referencia.valor})` };
+            }
+            return { esAlto: false, esBajo: false, mensaje: "" };
+        }
+        if (referencia.operador === "rango" && referencia.min !== undefined && referencia.max !== undefined) {
+            if (valorResultado < referencia.min) {
+                return { esBajo: true, esAlto: false, mensaje: `BAJO (referencia: ${referencia.min} - ${referencia.max})` };
+            }
+            if (valorResultado > referencia.max) {
+                return { esAlto: true, esBajo: false, mensaje: `ALTO (referencia: ${referencia.min} - ${referencia.max})` };
+            }
+            return { esAlto: false, esBajo: false, mensaje: "" };
+        }
+        return { esAlto: false, esBajo: false, mensaje: "" };
     }
 }
 //# sourceMappingURL=Cl_mEstudio.js.map

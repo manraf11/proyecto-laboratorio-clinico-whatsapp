@@ -1,3 +1,5 @@
+// models/Cl_mLaboratorio.ts
+import Cl_mEstudio from "./Cl_mEstudio.js";
 export default class Cl_mLaboratorio {
     listaExamenes = [];
     constructor() {
@@ -73,6 +75,32 @@ export default class Cl_mLaboratorio {
         }
         return resultados;
     }
+    contarEstudiosPorTipo(tipoEstudio) {
+        let tipoBusqueda = tipoEstudio.trim().toLowerCase();
+        let cantidad = 0;
+        for (let i = 0; i < this.listaExamenes.length; i++) {
+            let examen = this.listaExamenes[i];
+            let estudios = examen.obtenerArregloEstudios();
+            for (let j = 0; j < estudios.length; j++) {
+                if (estudios[j].toLowerCase() === tipoBusqueda)
+                    cantidad++;
+            }
+        }
+        return cantidad;
+    }
+    contarEstudiosPorFecha(fechaSeleccionada) {
+        let fechaBusqueda = fechaSeleccionada.trim().slice(0, 10);
+        if (fechaBusqueda.length !== 10)
+            return 0;
+        let cantidad = 0;
+        for (let i = 0; i < this.listaExamenes.length; i++) {
+            let examen = this.listaExamenes[i];
+            if (this.normalizarFecha(examen.fechaRegistro) === fechaBusqueda) {
+                cantidad += examen.obtenerArregloEstudios().length;
+            }
+        }
+        return cantidad;
+    }
     contarEstudiosPorTipoYFecha(tipoEstudio, fechaSeleccionada) {
         let tipoBusqueda = tipoEstudio.trim().toLowerCase();
         let fechaBusqueda = fechaSeleccionada.trim().slice(0, 10);
@@ -122,6 +150,42 @@ export default class Cl_mLaboratorio {
         }
         let porcentaje = (cantidadTipoEstudio / totalEstudios) * 100;
         return Math.round(porcentaje * 100) / 100;
+    }
+    nombrepacientesporestudio(tipoEstudio) {
+        let pacientes = [];
+        let tipoBusqueda = tipoEstudio.trim().toLowerCase();
+        for (let i = 0; i < this.listaExamenes.length; i++) {
+            let examen = this.listaExamenes[i];
+            let estudios = examen.obtenerArregloEstudios();
+            for (let m = 0; m < estudios.length; m++) {
+                if (estudios[m].toLowerCase() === tipoBusqueda) {
+                    if (!pacientes.includes(examen.nombrePaciente)) {
+                        pacientes.push(examen.nombrePaciente);
+                    }
+                }
+            }
+        }
+        return pacientes;
+    }
+    obtenertotalporestudio(tipoEstudio) {
+        let tipoBusqueda = tipoEstudio.trim();
+        let cantidad = 0;
+        const estudio = Cl_mEstudio.buscarPorNombre(tipoBusqueda);
+        if (!estudio) {
+            console.warn(`No se encontró el estudio: ${tipoEstudio}`);
+            return 0;
+        }
+        const costoPorEstudio = estudio.precio;
+        for (let i = 0; i < this.listaExamenes.length; i++) {
+            let examen = this.listaExamenes[i];
+            let estudios = examen.obtenerArregloEstudios();
+            for (let m = 0; m < estudios.length; m++) {
+                if (estudios[m].trim() === tipoBusqueda) {
+                    cantidad++;
+                }
+            }
+        }
+        return costoPorEstudio * cantidad;
     }
 }
 //# sourceMappingURL=Cl_mLaboratorio.js.map

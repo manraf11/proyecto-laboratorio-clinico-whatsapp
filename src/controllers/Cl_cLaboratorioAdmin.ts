@@ -21,9 +21,11 @@ export default class Cl_cLaboratorioAdmin {
     
     this.pantallaAdmin.cuandoClicEnNuevoExamen(() => yoMismo.guardarNuevoExamen());
     this.pantallaAdmin.cuandoClicEnFiltrarEstudios((tipo, fecha) => yoMismo.filtrarEstudios(tipo, fecha));
-    this.pantallaAdmin.cuandoClicEnCalcularPorcentaje((tipo) => yoMismo.calcularPorcentaje(tipo)); // NUEVO
-    this.pantallaAdmin.cuandoClicEnImprimir((id) => yoMismo.imprimirReporte(id));
+    this.pantallaAdmin.cuandoClicEnCalcularPorcentaje((tipo) => yoMismo.calcularPorcentaje(tipo));
+    this.pantallaAdmin.cuandoCLicEnObtenerNombres((tipo) => yoMismo.obtenerNombresPacientes(tipo));
+    this.pantallaAdmin.cuandoClicEnObtenerTotalPorEstudio((tipo) => yoMismo.obtenertotalportestudio(tipo));
     this.pantallaAdmin.cuandoClicEnEnviarWhatsApp((id) => yoMismo.enviarWhatsApp(id));
+    this.pantallaAdmin.cuandoClicEnImprimir((id) => yoMismo.imprimirReporte(id));
   }
 
   private async cargarExamenes() {
@@ -31,11 +33,23 @@ export default class Cl_cLaboratorioAdmin {
     if (resultado.ok) {
       this.laboratorio = resultado.laboratorio;
       this.refrescarPantalla();
+      this.actualizarSelectsEstudios();
+    } else {
+      console.error("Error al cargar exámenes desde la nube");
+    }
+  }
+
+  private actualizarSelectsEstudios(): void {
+    // Forzar actualización de los selects en la vista
+    if (this.pantallaAdmin.actualizarListaEstudios) {
+      this.pantallaAdmin.actualizarListaEstudios();
     }
   }
 
   private refrescarPantalla() {
     this.pantallaAdmin.mostrarFinalizados({ examenes: this.laboratorio.obtenerFinalizados() });
+    // Actualizar también los selects después de refrescar
+    this.actualizarSelectsEstudios();
   }
 
   private guardarNuevoExamen() {
@@ -46,12 +60,16 @@ export default class Cl_cLaboratorioAdmin {
         
         let guardado = await Cl_sLaboratorio.guardarEnNube(examen);
         if (guardado.ok) {
+          if (guardado.id) {
+            examen.id = guardado.id;
+          }
           alert("✅ Examen registrado con éxito");
           await yoMismo.cargarExamenes();
           
-          if (yoMismo.pantallaAdmin.actualizarListaEstudios) {
-            yoMismo.pantallaAdmin.actualizarListaEstudios();
-          }
+          // Refrescar los selects después de registrar un nuevo examen
+          setTimeout(() => {
+            yoMismo.actualizarSelectsEstudios();
+          }, 500);
         } else {
           alert("❌ Error al guardar el examen.");
         }
@@ -60,16 +78,26 @@ export default class Cl_cLaboratorioAdmin {
   }
 
   private filtrarEstudios(tipoEstudio: string, fechaSeleccionada: string) {
-    if (!tipoEstudio.trim() || !fechaSeleccionada.trim()) {
-      alert("⚠️ Debe ingresar fecha y un tipo de estudio.");
+    const tipo = tipoEstudio ? tipoEstudio.trim() : "";
+    const fecha = fechaSeleccionada ? fechaSeleccionada.trim() : "";
+
+    if (!tipo && !fecha) {
+      alert("⚠️ Debe ingresar al menos un estudio o una fecha para filtrar.");
       return;
     }
 
-    let cantidad = this.laboratorio.contarEstudiosPorTipoYFecha(tipoEstudio, fechaSeleccionada);
-    this.pantallaAdmin.mostrarResultadoFiltro(cantidad, tipoEstudio, fechaSeleccionada);
+    let cantidad = 0;
+    if (tipo && fecha) {
+      cantidad = this.laboratorio.contarEstudiosPorTipoYFecha(tipo, fecha);
+    } else if (tipo) {
+      cantidad = this.laboratorio.contarEstudiosPorTipo(tipo);
+    } else if (fecha) {
+      cantidad = this.laboratorio.contarEstudiosPorFecha(fecha);
+    }
+
+    this.pantallaAdmin.mostrarResultadoFiltro(cantidad, tipo || "(todos)", fecha || "(todas)");
   }
 
-  // NUEVO MÉTODO: calcular porcentaje
   private calcularPorcentaje(tipoEstudio: string) {
     if (!tipoEstudio || tipoEstudio.trim() === "") {
       alert("⚠️ Debe seleccionar un tipo de estudio");
@@ -80,9 +108,36 @@ export default class Cl_cLaboratorioAdmin {
     this.pantallaAdmin.mostrarResultadoPorcentaje(porcentaje, tipoEstudio);
   }
 
+  private obtenerNombresPacientes(tipoEstudio: string) {
+    if (!tipoEstudio || tipoEstudio.trim() === "") {
+      alert("⚠️ Debe seleccionar un tipo de estudio");
+      return;
+    }
+
+    const nombres = this.laboratorio.nombrepacientesporestudio(tipoEstudio);
+    this.pantallaAdmin.mostrarResultadosobtenerNombrePacientesPorEstudio({
+      nombres: nombres,
+      tipoEstudio: tipoEstudio
+    });
+  }
+
+  private obtenertotalportestudio(tipoEstudio: string) {
+    if (!tipoEstudio || tipoEstudio.trim() === "") {
+      alert("⚠️ Debe seleccionar un tipo de estudio");
+      return;
+    }
+
+    const total = this.laboratorio.obtenertotalporestudio(tipoEstudio);
+    this.pantallaAdmin.mostrarResultadoTotalPorEstudio(`El total recaudado por el estudio "${tipoEstudio}" es: $${total.toFixed(2)}`);
+  }
+
   private imprimirReporte(idExamen: string) {
     let examen = this.laboratorio.buscarPorId(idExamen);
-    if (!examen) return;
+    if (!examen) {
+      console.error("Examen no encontrado:", idExamen);
+      alert("No se encontró el examen solicitado.");
+      return;
+    }
 
     let listaEstudios = examen.obtenerArregloEstudios();
     let listaResultados = examen.obtenerArregloResultados();
@@ -94,11 +149,26 @@ export default class Cl_cLaboratorioAdmin {
       
       let refInfo = Cl_mEstudio.obtenerValoresReferencia(nombreEst);
       let unidadMedida = Cl_mEstudio.obtenerUnidad(nombreEst);
+      let estiloResultado = 'color: #2c6e49; font-weight:600; font-size:1.05rem;';
+      let alertaTexto = "";
+
+      if (resultadoVal !== "Pendiente" && !isNaN(Number(resultadoVal))) {
+        const valNum = Number(resultadoVal);
+        const evaluacion = Cl_mEstudio.evaluarResultado(nombreEst, valNum);
+        
+        if (evaluacion.esAlto) {
+          estiloResultado = 'color: #c0392b; font-weight:700; font-size:1.05rem; background: #ffe8e5; padding: 4px 8px; border-radius: 4px;';
+          alertaTexto = ` <span style="color: #c0392b; font-weight: bold;">⚠️ ${evaluacion.mensaje}</span>`;
+        } else if (evaluacion.esBajo) {
+          estiloResultado = 'color: #c0392b; font-weight:700; font-size:1.05rem; background: #ffe8e5; padding: 4px 8px; border-radius: 4px;';
+          alertaTexto = ` <span style="color: #c0392b; font-weight: bold;">⚠️ ${evaluacion.mensaje}</span>`;
+        }
+      }
 
       filasHtml += `
         <tr style="border-bottom: 1px solid #e2e8f0;">
           <td style="padding: 12px; font-weight: 600; color: #0b3b4f;">${nombreEst}</td>
-          <td style="padding: 12px; color: #2c6e49; font-weight: 600; font-size: 1.05rem;">${resultadoVal} ${unidadMedida}</td>
+          <td style="padding: 12px; ${estiloResultado}">${resultadoVal} ${unidadMedida}${alertaTexto}</td>
           <td style="padding: 12px; color: #5e7a93; font-size: 0.9rem;">${refInfo}</td>
         </tr>
       `;
@@ -136,7 +206,7 @@ export default class Cl_cLaboratorioAdmin {
               <th style="padding: 12px; border-top-left-radius: 6px;">Estudio Clinico</th>
               <th style="padding: 12px;">Resultado Obtenido</th>
               <th style="padding: 12px; border-top-right-radius: 6px;">Valores de Referencia</th>
-             </tr>
+             </>
           </thead>
           <tbody>
             ${filasHtml}
@@ -148,7 +218,33 @@ export default class Cl_cLaboratorioAdmin {
       </div>
     `;
 
-    this.pantallaAdmin.mostrarReporte(plantilla);
+    const ventanaImpresion = window.open('', '_blank');
+    if (ventanaImpresion) {
+      ventanaImpresion.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Reporte de Resultados - ${examen.nombrePaciente}</title>
+          <style>
+            @media print {
+              body { margin: 0; padding: 20px; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          ${plantilla}
+          <div class="no-print" style="text-align: center; margin-top: 20px;">
+            <button onclick="window.print();" style="padding: 10px 20px; font-size: 16px; cursor: pointer; background: #1a5f7a; color: white; border: none; border-radius: 5px;">🖨️ Imprimir</button>
+            <button onclick="window.close();" style="padding: 10px 20px; font-size: 16px; cursor: pointer; background: #6c757d; color: white; border: none; border-radius: 5px; margin-left: 10px;">❌ Cerrar</button>
+          </div>
+        </body>
+        </html>
+      `);
+      ventanaImpresion.document.close();
+    } else {
+      alert("No se pudo abrir la ventana de impresión. Por favor, permita ventanas emergentes.");
+    }
   }
 
   private async enviarWhatsApp(idExamen: string) {

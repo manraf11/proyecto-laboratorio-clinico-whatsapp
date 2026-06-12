@@ -12,7 +12,7 @@
       min-height: 100vh; 
       padding: 20px; 
     }
-    .container { max-width: 1000px; margin: 0 auto; }
+    .container { max-width: 1200px; margin: 0 auto; }
     .panel { 
       background: white; 
       border-radius: 12px; 
@@ -50,7 +50,54 @@
       border-color: #ffc107;
     }
     .panel-content { padding: 28px; }
-    .seccion { margin-bottom: 32px; }
+
+    .navbar-reportes {
+      background: #f0f6fa;
+      border-radius: 50px;
+      padding: 8px;
+      margin-bottom: 28px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      border: 1px solid #cbdde9;
+    }
+    .nav-item {
+      background: transparent;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: #1a5f7a;
+      font-family: inherit;
+    }
+    .nav-item:hover {
+      background: #e2eaf1;
+    }
+    .nav-item.active {
+      background: #1a5f7a;
+      color: white;
+      box-shadow: 0 2px 8px rgba(26,95,122,0.3);
+    }
+    
+    .modulo-filtro, .modulo-porcentaje, .modulo-nombres, .modulo-total {
+      display: none;
+      animation: fadeIn 0.25s ease;
+    }
+    .modulo-filtro.active-modulo, 
+    .modulo-porcentaje.active-modulo, 
+    .modulo-nombres.active-modulo, 
+    .modulo-total.active-modulo {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     .seccion-titulo { 
       font-size: 1.2rem; 
       color: #1a5f7a; 
@@ -179,17 +226,23 @@
       align-items: center;
       z-index: 1000;
     }
+    /* MODAL MÁS GRANDE */
     .modal-contenido {
       background: white;
       border-radius: 20px;
-      width: 480px;
-      max-width: 92%;
+      width: 750px;           /* ← aumentado de 480px a 750px */
+      max-width: 95%;
       max-height: 90vh;
       overflow-y: auto;
     }
     .modal-header {
       padding: 20px;
       border-bottom: 1px solid #ddd;
+      position: sticky;
+      top: 0;
+      background: white;
+      border-radius: 20px 20px 0 0;
+      z-index: 10;
     }
     .modal-body {
       padding: 20px;
@@ -199,40 +252,60 @@
       border-top: 1px solid #ddd;
       display: flex;
       gap: 12px;
+      position: sticky;
+      bottom: 0;
+      background: white;
+      border-radius: 0 0 20px 20px;
     }
     .campo {
-      margin-bottom: 15px;
+      margin-bottom: 18px;
     }
     .campo label {
       display: block;
       font-weight: bold;
-      margin-bottom: 5px;
+      margin-bottom: 6px;
+      color: #1a5f7a;
     }
     .campo input, .campo select {
       width: 100%;
-      padding: 8px;
+      padding: 10px;
       border: 1px solid #ddd;
-      border-radius: 5px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .campo input:focus, .campo select:focus {
+      outline: none;
+      border-color: #1a5f7a;
+      box-shadow: 0 0 0 2px rgba(26,95,122,0.2);
     }
     .error-input {
       border: 2px solid #c0392b !important;
       background: #ffe8e5 !important;
     }
+    /* CHECKBOX GROUP MEJORADO - DOS COLUMNAS */
     .checkbox-group {
       background: #f9f9f9;
-      padding: 10px;
+      padding: 12px;
       border: 1px solid #ddd;
-      border-radius: 6px;
-      max-height: 130px;
+      border-radius: 10px;
+      max-height: 280px;
       overflow-y: auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 6px;
     }
-    /* CORREGIDO: Checkbox horizontal con texto a la derecha */
     .checkbox-item {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
+      gap: 10px;
       cursor: pointer;
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: white;
+      transition: all 0.2s ease;
+    }
+    .checkbox-item:hover {
+      background: #e8f0fe;
     }
     .checkbox-item input {
       width: 18px;
@@ -240,12 +313,31 @@
       margin: 0;
       cursor: pointer;
       flex-shrink: 0;
+      accent-color: #1a5f7a;
     }
     .checkbox-item label {
       margin: 0;
       cursor: pointer;
       font-weight: normal;
       flex: 1;
+      font-size: 14px;
+      color: #2c3e50;
+    }
+    .modulo-card {
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 4px 0 0 0;
+    }
+    small {
+      display: block;
+      margin-top: 4px;
+      color: #6c757d;
+      font-size: 11px;
+    }
+    hr {
+      margin: 15px 0;
+      border: none;
+      border-top: 1px solid #e0e7ed;
     }
   </style>
 </head>
@@ -264,14 +356,20 @@
         </div>
         
         <div id="contenidoPrincipal" style="display: none;">
-          <div class="seccion">
-            <div class="seccion-titulo">📋 Opciones Generales</div>
-            <div id="admin_formulario">
-              <div class="admin-botones">
-                <button id="botonAbrirModal" class="btn-primario">+ Registrar Orden de Examen</button>
-              </div>
-              
-              <div style="padding: 18px; border: 1px solid #dce4ec; border-radius: 16px; background: #f8fbff; margin-top: 16px;">
+          <div class="navbar-reportes">
+            <button class="nav-item active" data-modulo="filtros">🔍 Filtro por Fecha/Estudio</button>
+            <button class="nav-item" data-modulo="porcentaje">📊 Porcentaje de Estudio</button>
+            <button class="nav-item" data-modulo="nombres">📋 Nombres por Estudio</button>
+            <button class="nav-item" data-modulo="total">💰 Total por Estudio</button>
+          </div>
+          
+          <div class="admin-botones" style="margin-bottom: 20px;">
+            <button id="botonAbrirModal" class="btn-primario">+ Registrar Orden de Examen</button>
+          </div>
+
+          <div id="admin_formulario">
+            <div id="modulo-filtros" class="modulo-filtro active-modulo modulo-card">
+              <div style="padding: 18px; border: 1px solid #dce4ec; border-radius: 16px; background: #f8fbff;">
                 <div style="font-weight: 600; color: #1a5f7a; margin-bottom: 12px;">🔍 Filtrar estudios por fecha</div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
                   <label style="display: flex; flex-direction: column; gap: 6px;">
@@ -288,8 +386,10 @@
                 <button id="botonFiltrarEstudios" class="btn-secundario">🔎 Buscar cantidad</button>
                 <div id="resultadoFiltroEstudios" style="margin-top: 18px;"></div>
               </div>
+            </div>
 
-              <div style="padding: 18px; border: 1px solid #dce4ec; border-radius: 16px; background: #f8fbff; margin-top: 16px;">
+            <div id="modulo-porcentaje" class="modulo-porcentaje modulo-card">
+              <div style="padding: 18px; border: 1px solid #dce4ec; border-radius: 16px; background: #f8fbff;">
                 <div style="font-weight: 600; color: #1a5f7a; margin-bottom: 12px;">📊 Porcentaje de estudio sobre el total</div>
                 <div style="margin-bottom: 14px;">
                   <label style="display: flex; flex-direction: column; gap: 6px;">
@@ -303,9 +403,41 @@
                 <div id="resultadoPorcentajeEstudios" style="margin-top: 18px;"></div>
               </div>
             </div>
+
+            <div id="modulo-nombres" class="modulo-nombres modulo-card">
+              <div style="padding: 18px; border: 1px solid #dce4ec; border-radius: 16px; background: #f8fbff;">
+                <div style="font-weight: 600; color: #1a5f7a; margin-bottom: 12px;">📋 Nombres de pacientes por estudio</div>
+                <div style="margin-bottom: 14px;">
+                  <label style="display: flex; flex-direction: column; gap: 6px;">
+                    Estudio a analizar
+                    <select id="nombre_pacientes_tipo_estudio" style="padding: 10px; border-radius: 10px; border: 1px solid #cbd5e1;">
+                      <option value="">-- Seleccione un estudio --</option>
+                    </select>
+                  </label>
+                </div>
+                <button id="botonObtenerNombres" class="btn-secundario" style="background: #764ba2; color: white;">📋 Obtener nombres</button>
+                <div id="resultadoNombrePacientesPorEstudio" style="margin-top: 18px;"></div>
+              </div>
+            </div>
+
+            <div id="modulo-total" class="modulo-total modulo-card">
+              <div style="padding: 18px; border: 1px solid #dce4ec; border-radius: 16px; background: #f8fbff;">
+                <div style="font-weight: 600; color: #1a5f7a; margin-bottom: 12px;">💰 Total recaudado por estudio</div>
+                <div style="margin-bottom: 14px;">
+                  <label style="display: flex; flex-direction: column; gap: 6px;">
+                    Estudio a analizar
+                    <select id="total_tipo_estudio" style="padding: 10px; border-radius: 10px; border: 1px solid #cbd5e1;">
+                      <option value="">-- Seleccione un estudio --</option>
+                    </select>
+                  </label>
+                </div>
+                <button id="botonObtenerTotalPorEstudio" class="btn-secundario" style="background: #764ba2; color: white;">💰 Calcular total</button>
+                <div id="resultadoTotalPorEstudio" style="margin-top: 18px;"></div>
+              </div>
+            </div>
           </div>
           
-          <div class="seccion">
+          <div class="seccion" style="margin-top: 32px;">
             <div class="seccion-titulo">🖨️ Resultados Listos para Impresión</div>
             <div id="admin_finalizados"></div>
           </div>
@@ -314,16 +446,53 @@
     </div>
   </div>
 
-  <!-- MODAL REGISTRAR EXAMEN -->
+  <!-- MODAL REGISTRAR EXAMEN - MÁS GRANDE -->
   <div id="modalExamen" class="modal">
     <div class="modal-contenido">
       <div class="modal-header" style="background: #1a5f7a; color: white; border-radius: 20px 20px 0 0;">
         <h3>📝 Registrar Orden Médica</h3>
       </div>
-      <div class="modal-body" id="modal_contenido"></div>
+      <div class="modal-body">
+        <div class="campo">
+          <label>Cédula de Identidad: <span style="color:#c0392b;">*</span></label>
+          <input type="text" id="modal_cedula" placeholder="Ej: V-12345678">
+          <small>Presione Enter para buscar</small>
+        </div>
+        <div class="campo">
+          <label>Nombre Completo: <span style="color:#c0392b;">*</span></label>
+          <input type="text" id="modal_nombre" placeholder="Ej: Manuel Flores">
+        </div>
+        <div class="campo">
+          <label>Teléfono: <span style="color:#c0392b;">*</span></label>
+          <input type="tel" id="modal_telefono" placeholder="Ej: 04121234567">
+          <small>Válidos: 0412, 0414, 0424, 0426, 0416, 0422</small>
+        </div>
+        <div class="campo">
+          <label>Estudios Solicitados: <span style="color:#c0392b;">*</span></label>
+          <div id="modal_checkboxes" class="checkbox-group">
+            <!-- Los checkboxes se llenan dinámicamente desde Cl_vExamen -->
+          </div>
+        </div>
+        <div class="campo">
+          <label>Total Provisional ($):</label>
+          <input type="number" id="modal_precio" value="0" readonly style="background:#f0f0f0; font-weight:bold; color:#2e7d32;">
+        </div>
+        <div class="campo">
+          <label>Método de Pago: <span style="color:#c0392b;">*</span></label>
+          <select id="modal_metodoPago">
+            <option value="Efectivo">💵 Efectivo</option>
+            <option value="Transferencia">🏦 Transferencia</option>
+            <option value="Pago Móvil">📱 Pago Móvil</option>
+          </select>
+        </div>
+        <div class="campo" id="campo_referencia" style="display:none;">
+          <label>Número de referencia: <span style="color:#c0392b;">*</span></label>
+          <input type="text" id="modal_referencia" placeholder="Ej: 1234567890">
+        </div>
+      </div>
       <div class="modal-footer">
-        <button id="modal_btnCancelar" class="btn-secundario" style="flex:1;">Cancelar</button>
-        <button id="modal_btnAceptar" class="btn-primario" style="flex:1;">Registrar Orden</button>
+        <button id="modal_btnCancelar" class="btn-secundario" style="flex:1;">❌ Cancelar</button>
+        <button id="modal_btnAceptar" class="btn-primario" style="flex:1;">✅ Registrar Orden</button>
       </div>
     </div>
   </div>
@@ -358,12 +527,52 @@
         .catch(() => mostrarAviso("❌ Error al cambiar de módulo", true));
     }
     
+    function inicializarNavegacionPorTabs() {
+      const botonesNav = document.querySelectorAll('.nav-item');
+      const moduloFiltros = document.getElementById('modulo-filtros');
+      const moduloPorcentaje = document.getElementById('modulo-porcentaje');
+      const moduloNombres = document.getElementById('modulo-nombres');
+      const moduloTotal = document.getElementById('modulo-total');
+      
+      function activarModulo(moduloId) {
+        if (moduloFiltros) moduloFiltros.classList.remove('active-modulo');
+        if (moduloPorcentaje) moduloPorcentaje.classList.remove('active-modulo');
+        if (moduloNombres) moduloNombres.classList.remove('active-modulo');
+        if (moduloTotal) moduloTotal.classList.remove('active-modulo');
+        
+        if (moduloId === 'filtros' && moduloFiltros) moduloFiltros.classList.add('active-modulo');
+        if (moduloId === 'porcentaje' && moduloPorcentaje) moduloPorcentaje.classList.add('active-modulo');
+        if (moduloId === 'nombres' && moduloNombres) moduloNombres.classList.add('active-modulo');
+        if (moduloId === 'total' && moduloTotal) moduloTotal.classList.add('active-modulo');
+        
+        botonesNav.forEach(btn => {
+          const btnModulo = btn.getAttribute('data-modulo');
+          if (btnModulo === moduloId) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+      }
+      
+      botonesNav.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const moduloId = btn.getAttribute('data-modulo');
+          if (moduloId) activarModulo(moduloId);
+        });
+      });
+      
+      activarModulo('filtros');
+    }
+
     async function iniciarAplicacion() {
       try {
         await Cl_sEstudio.cargarCatálogo();
         
         document.getElementById("cargando").style.display = "none";
         document.getElementById("contenidoPrincipal").style.display = "block";
+        
+        inicializarNavegacionPorTabs();
         
         const vAdmin = new Cl_vAdmin();
         const vExamen = new Cl_vExamen();

@@ -16,6 +16,7 @@ export default class Cl_vBioanalista implements I_vBioanalista {
   private estudios: Cl_mEstudio[] = [];
   private examenActual: Cl_mExamen | null = null;
   private estudioActual: Cl_mEstudio | null = null;
+  private filtroEstadoActual: string = "todos";
 
   constructor() {
     this.inicializarEventos();
@@ -26,6 +27,7 @@ export default class Cl_vBioanalista implements I_vBioanalista {
     const selectEstado = document.getElementById("selectEstado") as HTMLSelectElement;
     if (selectEstado) {
       selectEstado.onchange = () => {
+        this.filtroEstadoActual = selectEstado.value;
         if (this.avisarFiltrar) this.avisarFiltrar(selectEstado.value);
       };
     }
@@ -198,7 +200,15 @@ export default class Cl_vBioanalista implements I_vBioanalista {
     if (!contenedor) return;
 
     if (this.examenes.length === 0) {
-      contenedor.innerHTML = '<div class="mensaje-vacio">📭 No hay órdenes pendientes</div>';
+      let mensaje = "";
+      if (this.filtroEstadoActual === "preparacion") {
+        mensaje = "📭 No hay órdenes en estado PREPARACIÓN";
+      } else if (this.filtroEstadoActual === "pendiente") {
+        mensaje = "📭 No hay órdenes en estado PENDIENTE";
+      } else {
+        mensaje = "📭 No hay órdenes pendientes (PREPARACIÓN o PENDIENTE)";
+      }
+      contenedor.innerHTML = `<div class="mensaje-vacio">${mensaje}</div>`;
       return;
     }
 
@@ -214,7 +224,6 @@ export default class Cl_vBioanalista implements I_vBioanalista {
     html += '</tr></thead><tbody>';
 
     for (const ex of this.examenes) {
-      // ID del EXAMEN - SE MUESTRA NORMAL (SIN FORMATO)
       const idMostrar = ex.id ? ex.id : "N/A";
       const estadoClass = ex.estado === "preparacion" ? "badge-preparacion" : "badge-pendiente";
       const estadoTexto = ex.estado === "preparacion" ? "PREPARACIÓN" : "PENDIENTE";
@@ -224,8 +233,10 @@ export default class Cl_vBioanalista implements I_vBioanalista {
         estudiosHtml += `<span style="background:#eef3fc; padding:3px 8px; border-radius:12px; font-size:0.7rem; margin:2px; display:inline-block;">${this.escapeHtml(est)}</span>`;
       }
 
-      const resultados = ex.obtenerArregloResultados();
-      const tieneResultados = resultados.length === ex.obtenerArregloEstudios().length && resultados.every(r => r.trim() !== "");
+      // Para estado PREPARACIÓN: el botón Finalizar debe estar deshabilitado (no hay resultados)
+      // Para estado PENDIENTE: el botón Finalizar debe estar habilitado (ya tiene resultados)
+      const puedeFinalizar = ex.puedeFinalizar();
+      const mostrarBotonFinalizar = ex.estado === "pendiente" && puedeFinalizar;
 
       html += `<tr style="border-bottom:1px solid #eee;">
         <td style="padding:12px; font-family:monospace;">${idMostrar}</td>
@@ -236,7 +247,8 @@ export default class Cl_vBioanalista implements I_vBioanalista {
         <td style="padding:12px;">${new Date(ex.fechaRegistro).toLocaleDateString()}</td>
         <td style="padding:12px;">
           <button class="btn-azul btn-cargar" data-id="${ex.id}">📝 Resultados</button>
-          <button class="btn-verde btn-finalizar" data-id="${ex.id}" ${!tieneResultados ? 'disabled style="opacity:0.5;"' : ''}>✅ Finalizar</button>
+          ${mostrarBotonFinalizar ? `<button class="btn-verde btn-finalizar" data-id="${ex.id}">✅ Finalizar</button>` : ''}
+          ${ex.estado === "preparacion" ? '<button class="btn-finalizar" disabled style="opacity:0.5; background:#ccc;" title="Debe cargar resultados primero">✅ Finalizar</button>' : ''}
         </td>
       </tr>`;
     }
@@ -260,7 +272,7 @@ export default class Cl_vBioanalista implements I_vBioanalista {
     document.querySelectorAll(".btn-finalizar").forEach(btn => {
       btn.addEventListener("click", (e) => {
         const id = (e.target as HTMLButtonElement).getAttribute("data-id");
-        if (confirm("¿Finalizar esta orden?")) {
+        if (confirm("¿Finalizar esta orden? El examen pasará a estado LISTO y estará disponible para impresión.")) {
           if (this.avisarFinalizar && id) this.avisarFinalizar(id);
         }
       });
@@ -318,7 +330,6 @@ export default class Cl_vBioanalista implements I_vBioanalista {
     html += '</tr></thead><tbody>';
 
     for (const est of this.estudios) {
-      // SOLO PARA ESTUDIOS: Formatear ID como E01, E02, etc.
       const idFormateado = est.id ? `E${est.id.padStart(2, '0')}` : "N/A";
 
       html += `<tr style="border-bottom:1px solid #eee;">
@@ -331,7 +342,7 @@ export default class Cl_vBioanalista implements I_vBioanalista {
           <button class="btn-amarillo btn-editar" data-id="${est.id}">✏️ Editar</button>
           <button class="btn-rojo btn-eliminar" data-id="${est.id}">🗑️ Eliminar</button>
         </td>
-      </tr>`;
+      <tr>`;
     }
 
     html += '</tbody></table>';

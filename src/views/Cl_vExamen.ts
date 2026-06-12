@@ -1,10 +1,10 @@
 // views/Cl_vExamen.ts
 import { I_vExamen } from "../interfaces/I_vExamen.js";
 import Cl_mEstudio from "../models/Cl_mEstudio.js";
+import Cl_sLaboratorio from "../services/Cl_sLaboratorio.js";
 
 export default class Cl_vExamen implements I_vExamen {
   private modal: HTMLElement | null;
-  private contenidoModal: HTMLElement | null;
   private botonCancelar: HTMLButtonElement | null;
   private botonAceptar: HTMLButtonElement | null;
   private avisarAceptar: ((datos: {
@@ -13,14 +13,32 @@ export default class Cl_vExamen implements I_vExamen {
     telefonoPaciente?: string;
     estudiosSeleccionados: string[];
     formaPago: string;
+    referencia?: string;
   }) => void) | null = null;
   private avisarCancelar: (() => void) | null = null;
 
+  private inputCedula: HTMLInputElement | null;
+  private inputNombre: HTMLInputElement | null;
+  private inputTelefono: HTMLInputElement | null;
+  private inputReferencia: HTMLInputElement | null;
+  private selectMetodoPago: HTMLSelectElement | null;
+  private campoReferencia: HTMLElement | null;
+  private inputPrecio: HTMLInputElement | null;
+  private checkboxesContainer: HTMLElement | null;
+
   constructor() {
     this.modal = document.getElementById("modalExamen");
-    this.contenidoModal = document.getElementById("modal_contenido");
     this.botonCancelar = document.getElementById("modal_btnCancelar") as HTMLButtonElement;
     this.botonAceptar = document.getElementById("modal_btnAceptar") as HTMLButtonElement;
+    
+    this.inputCedula = document.getElementById("modal_cedula") as HTMLInputElement;
+    this.inputNombre = document.getElementById("modal_nombre") as HTMLInputElement;
+    this.inputTelefono = document.getElementById("modal_telefono") as HTMLInputElement;
+    this.inputReferencia = document.getElementById("modal_referencia") as HTMLInputElement;
+    this.selectMetodoPago = document.getElementById("modal_metodoPago") as HTMLSelectElement;
+    this.campoReferencia = document.getElementById("campo_referencia");
+    this.inputPrecio = document.getElementById("modal_precio") as HTMLInputElement;
+    this.checkboxesContainer = document.getElementById("modal_checkboxes");
 
     if (this.modal) this.modal.style.display = "none";
 
@@ -35,24 +53,27 @@ export default class Cl_vExamen implements I_vExamen {
 
     if (this.botonAceptar) {
       this.botonAceptar.onclick = () => {
-        const nombre = (document.getElementById("modal_nombre") as HTMLInputElement)?.value || "";
-        const cedula = (document.getElementById("modal_cedula") as HTMLInputElement)?.value || "";
-        const telefono = (document.getElementById("modal_telefono") as HTMLInputElement)?.value || "";
-        const metodoPago = (document.getElementById("modal_metodoPago") as HTMLSelectElement)?.value || "";
+        const nombre = yoMismo.inputNombre?.value || "";
+        const cedula = yoMismo.inputCedula?.value || "";
+        const telefono = yoMismo.inputTelefono?.value || "";
+        const metodoPago = yoMismo.selectMetodoPago?.value || "";
+        const referencia = yoMismo.inputReferencia?.value || "";
 
         const estudiosMarcados: string[] = [];
-        const checkboxes = document.querySelectorAll(".modal-check-estudio:checked");
-        for (let i = 0; i < checkboxes.length; i++) {
-          estudiosMarcados.push((checkboxes[i] as HTMLInputElement).value);
+        if (yoMismo.checkboxesContainer) {
+          const checkboxes = yoMismo.checkboxesContainer.querySelectorAll(".modal-check-estudio:checked");
+          for (let i = 0; i < checkboxes.length; i++) {
+            estudiosMarcados.push((checkboxes[i] as HTMLInputElement).value);
+          }
         }
 
-        if (nombre.trim() === "") {
-          alert("⚠️ El nombre del paciente es obligatorio.");
+        if (cedula.trim() === "") {
+          alert("⚠️ La cédula del paciente es obligatoria.");
           return;
         }
         
-        if (cedula.trim() === "") {
-          alert("⚠️ La cédula del paciente es obligatoria.");
+        if (nombre.trim() === "") {
+          alert("⚠️ El nombre del paciente es obligatorio.");
           return;
         }
         
@@ -64,6 +85,11 @@ export default class Cl_vExamen implements I_vExamen {
         const telefonoValido = yoMismo.validarTelefonoVenezuela(telefono);
         if (!telefonoValido.valido) {
           alert(telefonoValido.mensaje);
+          return;
+        }
+
+        if ((metodoPago === "Transferencia" || metodoPago === "Pago Móvil") && referencia.trim() === "") {
+          alert("⚠️ El número de referencia es obligatorio para el método de pago seleccionado.");
           return;
         }
         
@@ -78,11 +104,72 @@ export default class Cl_vExamen implements I_vExamen {
             cedulaPaciente: cedula,
             telefonoPaciente: telefono,
             estudiosSeleccionados: estudiosMarcados,
-            formaPago: metodoPago
+            formaPago: metodoPago,
+            referencia: referencia
           });
         }
       };
     }
+
+    this.configurarEventListeners();
+  }
+
+  private configurarEventListeners(): void {
+    if (this.checkboxesContainer) {
+      this.checkboxesContainer.addEventListener("change", (e) => {
+        const target = e.target as HTMLInputElement;
+        if (target.classList.contains("modal-check-estudio")) {
+          this.actualizarTotal();
+        }
+      });
+    }
+
+    if (this.selectMetodoPago) {
+      this.selectMetodoPago.onchange = () => {
+        const v = this.selectMetodoPago?.value;
+        if (v === "Transferencia" || v === "Pago Móvil") {
+          if (this.campoReferencia) this.campoReferencia.style.display = "block";
+        } else {
+          if (this.campoReferencia) this.campoReferencia.style.display = "none";
+          if (this.inputReferencia) this.inputReferencia.value = "";
+        }
+      };
+    }
+
+    if (this.inputCedula) {
+      this.inputCedula.addEventListener('keydown', async (ev) => {
+        if (ev.key === 'Enter') {
+          const ced = this.inputCedula?.value.trim() || "";
+          if (!ced) return;
+          
+          if (this.inputNombre) this.inputNombre.value = "";
+          if (this.inputTelefono) this.inputTelefono.value = "";
+          
+          const res = await Cl_sLaboratorio.buscarPorCedula(ced);
+          if (res.ok && res.registro) {
+            const r = res.registro;
+            if (this.inputNombre && r.nombrePaciente) this.inputNombre.value = r.nombrePaciente;
+            if (this.inputTelefono && r.telefonoPaciente) this.inputTelefono.value = r.telefonoPaciente;
+            alert("✅ Datos del paciente cargados automáticamente.");
+          } else {
+            alert("ℹ️ Paciente no encontrado. Complete los datos manualmente.");
+          }
+        }
+      });
+    }
+  }
+
+  private actualizarTotal(): void {
+    if (!this.checkboxesContainer || !this.inputPrecio) return;
+    
+    let total = 0;
+    const checkboxes = this.checkboxesContainer.querySelectorAll(".modal-check-estudio:checked");
+    for (let i = 0; i < checkboxes.length; i++) {
+      const chk = checkboxes[i] as HTMLInputElement;
+      const precio = parseFloat(chk.getAttribute("data-precio") || "0");
+      total += precio;
+    }
+    this.inputPrecio.value = total.toString();
   }
 
   private validarTelefonoVenezuela(telefono: string): { valido: boolean; mensaje: string } {
@@ -119,6 +206,46 @@ export default class Cl_vExamen implements I_vExamen {
     return { valido: false, mensaje: "Teléfono inválido. Ej: 04121234567" };
   }
 
+  public cargarCatalogoEstudios(): void {
+    if (!this.checkboxesContainer) return;
+
+    const estudios = Cl_mEstudio.obtenerTodos();
+    
+    if (estudios.length === 0) {
+      this.checkboxesContainer.innerHTML = "<p>Cargando catálogo...</p>";
+      return;
+    }
+
+    let checkboxesHtml = "";
+    for (let i = 0; i < estudios.length; i++) {
+      const est = estudios[i];
+      checkboxesHtml += `
+        <div class="checkbox-item">
+          <input type="checkbox" class="modal-check-estudio" id="mod_est_${est.id}" value="${est.nombre}" data-precio="${est.precio}">
+          <label for="mod_est_${est.id}">${this.escapeHtml(est.nombre)} ($${est.precio})</label>
+        </div>
+      `;
+    }
+    this.checkboxesContainer.innerHTML = checkboxesHtml;
+  }
+
+  public limpiarFormulario(): void {
+    if (this.inputCedula) this.inputCedula.value = "";
+    if (this.inputNombre) this.inputNombre.value = "";
+    if (this.inputTelefono) this.inputTelefono.value = "";
+    if (this.inputReferencia) this.inputReferencia.value = "";
+    if (this.inputPrecio) this.inputPrecio.value = "0";
+    if (this.selectMetodoPago) this.selectMetodoPago.value = "Efectivo";
+    if (this.campoReferencia) this.campoReferencia.style.display = "none";
+    
+    if (this.checkboxesContainer) {
+      const checkboxes = this.checkboxesContainer.querySelectorAll(".modal-check-estudio");
+      for (let i = 0; i < checkboxes.length; i++) {
+        (checkboxes[i] as HTMLInputElement).checked = false;
+      }
+    }
+  }
+
   public cuandoDenCancelar(callback: () => void): void { 
     this.avisarCancelar = callback; 
   }
@@ -129,84 +256,25 @@ export default class Cl_vExamen implements I_vExamen {
     telefonoPaciente?: string;
     estudiosSeleccionados: string[];
     formaPago: string;
+    referencia?: string;
   }) => void): void { 
     this.avisarAceptar = callback; 
   }
 
   public mostrar(): void {
-    if (!this.contenidoModal || !this.modal) return;
-
-    let checkboxesHtml = "";
-    const estudios = Cl_mEstudio.obtenerTodos();
-    
-    for (let i = 0; i < estudios.length; i++) {
-      const est = estudios[i];
-      checkboxesHtml += `
-        <div class="checkbox-item">
-          <input type="checkbox" class="modal-check-estudio" id="mod_est_${est.id}" value="${est.nombre}" data-precio="${est.precio}">
-          <label for="mod_est_${est.id}">${est.nombre} ($${est.precio})</label>
-        </div>
-      `;
-    }
-
-    if (estudios.length === 0) {
-      checkboxesHtml = "<p>Cargando catálogo...</p>";
-    }
-
-    this.contenidoModal.innerHTML = `
-      <div class="campo">
-        <label>Nombre Completo: <span style="color:#c0392b;">*</span></label>
-        <input type="text" id="modal_nombre" placeholder="Ej: Manuel Flores">
-      </div>
-      <div class="campo">
-        <label>Cédula de Identidad: <span style="color:#c0392b;">*</span></label>
-        <input type="text" id="modal_cedula" placeholder="Ej: V-12345678">
-      </div>
-      <div class="campo">
-        <label>Teléfono: <span style="color:#c0392b;">*</span></label>
-        <input type="tel" id="modal_telefono" placeholder="Ej: 04121234567">
-        <small>Válidos: 0412, 0414, 0424, 0426, 0416, 0422</small>
-      </div>
-      <div class="campo">
-        <label>Estudios Solicitados: <span style="color:#c0392b;">*</span></label>
-        <div class="checkbox-group">
-          ${checkboxesHtml}
-        </div>
-      </div>
-      <div class="campo">
-        <label>Total Provisional ($):</label>
-        <input type="number" id="modal_precio" value="0" readonly style="background:#f0f0f0; font-weight:bold; color:#2e7d32;">
-      </div>
-      <div class="campo">
-        <label>Método de Pago: <span style="color:#c0392b;">*</span></label>
-        <select id="modal_metodoPago">
-          <option value="Efectivo">Efectivo</option>
-          <option value="Transferencia">Transferencia</option>
-          <option value="Pago Móvil">Pago Móvil</option>
-        </select>
-      </div>
-    `;
-
-    const inputPrecio = document.getElementById("modal_precio") as HTMLInputElement;
-    const checkboxes = document.querySelectorAll(".modal-check-estudio");
-    
-    for (let i = 0; i < checkboxes.length; i++) {
-      const chk = checkboxes[i] as HTMLInputElement;
-      chk.onchange = () => {
-        let total = 0;
-        const marcados = document.querySelectorAll(".modal-check-estudio:checked");
-        for (let j = 0; j < marcados.length; j++) {
-          const chkMarcado = marcados[j] as HTMLInputElement;
-          total += parseFloat(chkMarcado.getAttribute("data-precio") || "0");
-        }
-        if (inputPrecio) inputPrecio.value = total.toString();
-      };
-    }
-
-    this.modal.style.display = "flex";
+    this.limpiarFormulario();
+    this.cargarCatalogoEstudios();
+    if (this.modal) this.modal.style.display = "flex";
   }
 
   public ocultar(): void {
     if (this.modal) this.modal.style.display = "none";
+  }
+
+  private escapeHtml(text: string): string {
+    if (!text) return "";
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 }

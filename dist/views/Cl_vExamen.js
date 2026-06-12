@@ -1,16 +1,31 @@
 import Cl_mEstudio from "../models/Cl_mEstudio.js";
+import Cl_sLaboratorio from "../services/Cl_sLaboratorio.js";
 export default class Cl_vExamen {
     modal;
-    contenidoModal;
     botonCancelar;
     botonAceptar;
     avisarAceptar = null;
     avisarCancelar = null;
+    inputCedula;
+    inputNombre;
+    inputTelefono;
+    inputReferencia;
+    selectMetodoPago;
+    campoReferencia;
+    inputPrecio;
+    checkboxesContainer;
     constructor() {
         this.modal = document.getElementById("modalExamen");
-        this.contenidoModal = document.getElementById("modal_contenido");
         this.botonCancelar = document.getElementById("modal_btnCancelar");
         this.botonAceptar = document.getElementById("modal_btnAceptar");
+        this.inputCedula = document.getElementById("modal_cedula");
+        this.inputNombre = document.getElementById("modal_nombre");
+        this.inputTelefono = document.getElementById("modal_telefono");
+        this.inputReferencia = document.getElementById("modal_referencia");
+        this.selectMetodoPago = document.getElementById("modal_metodoPago");
+        this.campoReferencia = document.getElementById("campo_referencia");
+        this.inputPrecio = document.getElementById("modal_precio");
+        this.checkboxesContainer = document.getElementById("modal_checkboxes");
         if (this.modal)
             this.modal.style.display = "none";
         let yoMismo = this;
@@ -23,21 +38,24 @@ export default class Cl_vExamen {
         }
         if (this.botonAceptar) {
             this.botonAceptar.onclick = () => {
-                const nombre = document.getElementById("modal_nombre")?.value || "";
-                const cedula = document.getElementById("modal_cedula")?.value || "";
-                const telefono = document.getElementById("modal_telefono")?.value || "";
-                const metodoPago = document.getElementById("modal_metodoPago")?.value || "";
+                const nombre = yoMismo.inputNombre?.value || "";
+                const cedula = yoMismo.inputCedula?.value || "";
+                const telefono = yoMismo.inputTelefono?.value || "";
+                const metodoPago = yoMismo.selectMetodoPago?.value || "";
+                const referencia = yoMismo.inputReferencia?.value || "";
                 const estudiosMarcados = [];
-                const checkboxes = document.querySelectorAll(".modal-check-estudio:checked");
-                for (let i = 0; i < checkboxes.length; i++) {
-                    estudiosMarcados.push(checkboxes[i].value);
-                }
-                if (nombre.trim() === "") {
-                    alert("⚠️ El nombre del paciente es obligatorio.");
-                    return;
+                if (yoMismo.checkboxesContainer) {
+                    const checkboxes = yoMismo.checkboxesContainer.querySelectorAll(".modal-check-estudio:checked");
+                    for (let i = 0; i < checkboxes.length; i++) {
+                        estudiosMarcados.push(checkboxes[i].value);
+                    }
                 }
                 if (cedula.trim() === "") {
                     alert("⚠️ La cédula del paciente es obligatoria.");
+                    return;
+                }
+                if (nombre.trim() === "") {
+                    alert("⚠️ El nombre del paciente es obligatorio.");
                     return;
                 }
                 if (telefono.trim() === "") {
@@ -47,6 +65,10 @@ export default class Cl_vExamen {
                 const telefonoValido = yoMismo.validarTelefonoVenezuela(telefono);
                 if (!telefonoValido.valido) {
                     alert(telefonoValido.mensaje);
+                    return;
+                }
+                if ((metodoPago === "Transferencia" || metodoPago === "Pago Móvil") && referencia.trim() === "") {
+                    alert("⚠️ El número de referencia es obligatorio para el método de pago seleccionado.");
                     return;
                 }
                 if (estudiosMarcados.length === 0) {
@@ -59,11 +81,75 @@ export default class Cl_vExamen {
                         cedulaPaciente: cedula,
                         telefonoPaciente: telefono,
                         estudiosSeleccionados: estudiosMarcados,
-                        formaPago: metodoPago
+                        formaPago: metodoPago,
+                        referencia: referencia
                     });
                 }
             };
         }
+        this.configurarEventListeners();
+    }
+    configurarEventListeners() {
+        if (this.checkboxesContainer) {
+            this.checkboxesContainer.addEventListener("change", (e) => {
+                const target = e.target;
+                if (target.classList.contains("modal-check-estudio")) {
+                    this.actualizarTotal();
+                }
+            });
+        }
+        if (this.selectMetodoPago) {
+            this.selectMetodoPago.onchange = () => {
+                const v = this.selectMetodoPago?.value;
+                if (v === "Transferencia" || v === "Pago Móvil") {
+                    if (this.campoReferencia)
+                        this.campoReferencia.style.display = "block";
+                }
+                else {
+                    if (this.campoReferencia)
+                        this.campoReferencia.style.display = "none";
+                    if (this.inputReferencia)
+                        this.inputReferencia.value = "";
+                }
+            };
+        }
+        if (this.inputCedula) {
+            this.inputCedula.addEventListener('keydown', async (ev) => {
+                if (ev.key === 'Enter') {
+                    const ced = this.inputCedula?.value.trim() || "";
+                    if (!ced)
+                        return;
+                    if (this.inputNombre)
+                        this.inputNombre.value = "";
+                    if (this.inputTelefono)
+                        this.inputTelefono.value = "";
+                    const res = await Cl_sLaboratorio.buscarPorCedula(ced);
+                    if (res.ok && res.registro) {
+                        const r = res.registro;
+                        if (this.inputNombre && r.nombrePaciente)
+                            this.inputNombre.value = r.nombrePaciente;
+                        if (this.inputTelefono && r.telefonoPaciente)
+                            this.inputTelefono.value = r.telefonoPaciente;
+                        alert("✅ Datos del paciente cargados automáticamente.");
+                    }
+                    else {
+                        alert("ℹ️ Paciente no encontrado. Complete los datos manualmente.");
+                    }
+                }
+            });
+        }
+    }
+    actualizarTotal() {
+        if (!this.checkboxesContainer || !this.inputPrecio)
+            return;
+        let total = 0;
+        const checkboxes = this.checkboxesContainer.querySelectorAll(".modal-check-estudio:checked");
+        for (let i = 0; i < checkboxes.length; i++) {
+            const chk = checkboxes[i];
+            const precio = parseFloat(chk.getAttribute("data-precio") || "0");
+            total += precio;
+        }
+        this.inputPrecio.value = total.toString();
     }
     validarTelefonoVenezuela(telefono) {
         if (!telefono || telefono.trim() === "") {
@@ -95,6 +181,48 @@ export default class Cl_vExamen {
             return { valido: true, mensaje: "" };
         return { valido: false, mensaje: "Teléfono inválido. Ej: 04121234567" };
     }
+    cargarCatalogoEstudios() {
+        if (!this.checkboxesContainer)
+            return;
+        const estudios = Cl_mEstudio.obtenerTodos();
+        if (estudios.length === 0) {
+            this.checkboxesContainer.innerHTML = "<p>Cargando catálogo...</p>";
+            return;
+        }
+        let checkboxesHtml = "";
+        for (let i = 0; i < estudios.length; i++) {
+            const est = estudios[i];
+            checkboxesHtml += `
+        <div class="checkbox-item">
+          <input type="checkbox" class="modal-check-estudio" id="mod_est_${est.id}" value="${est.nombre}" data-precio="${est.precio}">
+          <label for="mod_est_${est.id}">${this.escapeHtml(est.nombre)} ($${est.precio})</label>
+        </div>
+      `;
+        }
+        this.checkboxesContainer.innerHTML = checkboxesHtml;
+    }
+    limpiarFormulario() {
+        if (this.inputCedula)
+            this.inputCedula.value = "";
+        if (this.inputNombre)
+            this.inputNombre.value = "";
+        if (this.inputTelefono)
+            this.inputTelefono.value = "";
+        if (this.inputReferencia)
+            this.inputReferencia.value = "";
+        if (this.inputPrecio)
+            this.inputPrecio.value = "0";
+        if (this.selectMetodoPago)
+            this.selectMetodoPago.value = "Efectivo";
+        if (this.campoReferencia)
+            this.campoReferencia.style.display = "none";
+        if (this.checkboxesContainer) {
+            const checkboxes = this.checkboxesContainer.querySelectorAll(".modal-check-estudio");
+            for (let i = 0; i < checkboxes.length; i++) {
+                checkboxes[i].checked = false;
+            }
+        }
+    }
     cuandoDenCancelar(callback) {
         this.avisarCancelar = callback;
     }
@@ -102,75 +230,21 @@ export default class Cl_vExamen {
         this.avisarAceptar = callback;
     }
     mostrar() {
-        if (!this.contenidoModal || !this.modal)
-            return;
-        let checkboxesHtml = "";
-        const estudios = Cl_mEstudio.obtenerTodos();
-        for (let i = 0; i < estudios.length; i++) {
-            const est = estudios[i];
-            checkboxesHtml += `
-        <div class="checkbox-item">
-          <input type="checkbox" class="modal-check-estudio" id="mod_est_${est.id}" value="${est.nombre}" data-precio="${est.precio}">
-          <label for="mod_est_${est.id}">${est.nombre} ($${est.precio})</label>
-        </div>
-      `;
-        }
-        if (estudios.length === 0) {
-            checkboxesHtml = "<p>Cargando catálogo...</p>";
-        }
-        this.contenidoModal.innerHTML = `
-      <div class="campo">
-        <label>Nombre Completo: <span style="color:#c0392b;">*</span></label>
-        <input type="text" id="modal_nombre" placeholder="Ej: Manuel Flores">
-      </div>
-      <div class="campo">
-        <label>Cédula de Identidad: <span style="color:#c0392b;">*</span></label>
-        <input type="text" id="modal_cedula" placeholder="Ej: V-12345678">
-      </div>
-      <div class="campo">
-        <label>Teléfono: <span style="color:#c0392b;">*</span></label>
-        <input type="tel" id="modal_telefono" placeholder="Ej: 04121234567">
-        <small>Válidos: 0412, 0414, 0424, 0426, 0416, 0422</small>
-      </div>
-      <div class="campo">
-        <label>Estudios Solicitados: <span style="color:#c0392b;">*</span></label>
-        <div class="checkbox-group">
-          ${checkboxesHtml}
-        </div>
-      </div>
-      <div class="campo">
-        <label>Total Provisional ($):</label>
-        <input type="number" id="modal_precio" value="0" readonly style="background:#f0f0f0; font-weight:bold; color:#2e7d32;">
-      </div>
-      <div class="campo">
-        <label>Método de Pago: <span style="color:#c0392b;">*</span></label>
-        <select id="modal_metodoPago">
-          <option value="Efectivo">Efectivo</option>
-          <option value="Transferencia">Transferencia</option>
-          <option value="Pago Móvil">Pago Móvil</option>
-        </select>
-      </div>
-    `;
-        const inputPrecio = document.getElementById("modal_precio");
-        const checkboxes = document.querySelectorAll(".modal-check-estudio");
-        for (let i = 0; i < checkboxes.length; i++) {
-            const chk = checkboxes[i];
-            chk.onchange = () => {
-                let total = 0;
-                const marcados = document.querySelectorAll(".modal-check-estudio:checked");
-                for (let j = 0; j < marcados.length; j++) {
-                    const chkMarcado = marcados[j];
-                    total += parseFloat(chkMarcado.getAttribute("data-precio") || "0");
-                }
-                if (inputPrecio)
-                    inputPrecio.value = total.toString();
-            };
-        }
-        this.modal.style.display = "flex";
+        this.limpiarFormulario();
+        this.cargarCatalogoEstudios();
+        if (this.modal)
+            this.modal.style.display = "flex";
     }
     ocultar() {
         if (this.modal)
             this.modal.style.display = "none";
+    }
+    escapeHtml(text) {
+        if (!text)
+            return "";
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 //# sourceMappingURL=Cl_vExamen.js.map

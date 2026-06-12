@@ -10,6 +10,7 @@ export default class Cl_mExamen {
   public resultadoExamen: string;    
   public precioEstudio: number;
   public formaPago: string;
+  public referencia: string;
   public estado: "preparacion" | "pendiente" | "listo";
   public fechaRegistro: string;
 
@@ -23,6 +24,7 @@ export default class Cl_mExamen {
     resultadoExamen?: string;
     precioEstudio?: number;
     formaPago?: string;
+    referencia?: string;
     estado?: "preparacion" | "pendiente" | "listo";
     fechaRegistro?: string;
   }) {
@@ -31,6 +33,7 @@ export default class Cl_mExamen {
     this.cedulaPaciente = datos.cedulaPaciente || "";
     this.telefonoPaciente = datos.telefonoPaciente || "";
     this.formaPago = datos.formaPago || "";
+    this.referencia = datos.referencia || "";
     this.resultadoExamen = datos.resultadoExamen || "";
     this.estado = datos.estado || "preparacion";
     this.fechaRegistro = datos.fechaRegistro || new Date().toISOString();
@@ -108,17 +111,30 @@ export default class Cl_mExamen {
     mensaje += `*📊 RESULTADOS:*\n`;
     
     for (let i = 0; i < estudios.length; i++) {
+      let estudio = estudios[i];
       let resultado = resultados[i] || "Pendiente";
-      let referencia = Cl_mEstudio.obtenerValoresReferencia(estudios[i]);
-      let unidad = Cl_mEstudio.obtenerUnidad(estudios[i]);
-      
-      mensaje += `\n🔬 *${estudios[i]}*\n`;
-      mensaje += `   Valor: ${resultado} ${unidad}\n`;
+      let referencia = Cl_mEstudio.obtenerValoresReferencia(estudio);
+      let unidad = Cl_mEstudio.obtenerUnidad(estudio);
+      let alerta = "";
+
+      if (resultado !== "Pendiente" && !isNaN(Number(resultado))) {
+        const valNum = Number(resultado);
+        const evaluacion = Cl_mEstudio.evaluarResultado(estudio, valNum);
+        
+        if (evaluacion.esAlto) {
+          alerta = ` ⚠️ *${evaluacion.mensaje}* ⚠️`;
+        } else if (evaluacion.esBajo) {
+          alerta = ` ⚠️ *${evaluacion.mensaje}* ⚠️`;
+        }
+      }
+
+      mensaje += `\n🔬 *${estudio}*\n`;
+      mensaje += `   Valor: ${resultado} ${unidad}${alerta}\n`;
       mensaje += `   Referencia: ${referencia}\n`;
     }
     
     mensaje += `\n━━━━━━━━━━━━━━━━━━━━━\n`;
-    mensaje += `*Total pagado:* $${this.precioEstudio}\n`;  // CORREGIDO: solo dólares
+    mensaje += `*Total pagado:* $${this.precioEstudio}\n`;  
     mensaje += `*Método de pago:* ${this.formaPago}\n\n`;
     mensaje += `_Resultados validados por nuestro equipo._\n`;
     mensaje += `_Ante cualquier duda, consulte con su médico._`;
@@ -136,7 +152,17 @@ export default class Cl_mExamen {
     }
     let resultados = this.obtenerArregloResultados();
     let estudios = this.obtenerArregloEstudios();
-    
-    return resultados.length === estudios.length && resultados.every(r => r.trim() !== "");
+    // Considerar como no válidos ciertos placeholders comunes que significan "sin resultado"
+    const placeholders = ["pendiente", "no realizado", "no realizado", "nr", "-", "n/a", "na"]; 
+
+    const resultadosValidos = resultados.filter(r => {
+      if (!r) return false;
+      const limpio = r.trim().toLowerCase();
+      if (limpio === "") return false;
+      if (placeholders.includes(limpio)) return false;
+      return true;
+    });
+
+    return resultados.length === estudios.length && resultadosValidos.length === estudios.length;
   }
 }
